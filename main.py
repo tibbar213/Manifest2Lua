@@ -200,7 +200,7 @@ def parse_vdf_to_lua(depot_info, appid, save_dir):
 
 # Main function to run the entire process
 def main():
-    user_input = input("请输入appid或游戏名称：").strip()
+    user_input = input("请输入appid或游戏英文名：").strip()
 
     # Check if the input is numeric (appid) or string (game name)
     if user_input.isdigit():
@@ -236,4 +236,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -3,70 +3,55 @@ import aiohttp
 import aiofiles
 import os
 import logging
-import json
 import vdf
 
-# Setup logging
+# 设置日志
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
-# Define global variables
-repos = ['ManifestHub/ManifestHub', 'hansaes/ManifestAutoUpdate', 'Auiowu/ManifestAutoUpdate', 'tymolu233/ManifestAutoUpdate', 'qwq-xinkeng/awaqwqmain']  # Add multiple repositories here
-games_list_file = 'steam_games.json'  # File to store game list
+# 定义全局变量
+repos = ['ManifestHub/ManifestHub', 'hansaes/ManifestAutoUpdate', 'Auiowu/ManifestAutoUpdate',
+         'tymolu233/ManifestAutoUpdate', 'qwq-xinkeng/awaqwqmain']
 
 
-# Helper function to handle errors
+# 错误处理函数
 def stack_error(e):
     return f"{type(e).__name__}: {e}"
 
 
-# Fetch game list from Steam API
-async def fetch_steam_game_list():
-    url = 'https://api.steampowered.com/ISteamApps/GetAppList/v2/'
+# 从Steam API直接搜索游戏信息
+async def search_game_info(search_term):
+    url = f'https://steamui.com/loadGames.php?search={search_term}'
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as r:
             if r.status == 200:
                 data = await r.json()
-                game_list = data['applist']['apps']
-                # Save game list to a file
-                async with aiofiles.open(games_list_file, 'w', encoding='utf-8') as f:
-                    await f.write(json.dumps(game_list, ensure_ascii=False, indent=4))
-                log.info("✅ 游戏列表已更新")
+                games = data.get('games', [])
+                return games
             else:
-                log.error("⚠ 获取游戏列表失败")
+                log.error("⚠ 获取游戏信息失败")
+                return []
 
 
-# Load game list from file
-async def load_game_list():
-    if not os.path.exists(games_list_file):
-        await fetch_steam_game_list()
-    async with aiofiles.open(games_list_file, 'r', encoding='utf-8') as f:
-        data = await f.read()
-        return json.loads(data)
-
-
-# Find appid by game name using substring matching
+# 通过游戏名查找appid
 async def find_appid_by_name(game_name):
-    game_list = await load_game_list()
-    game_names = {str(game['appid']): game['name'] for game in game_list}
+    games = await search_game_info(game_name)
 
-    # Use case-insensitive substring matching
-    matches = [(appid, name) for appid, name in game_names.items() if game_name.lower() in name.lower()]
-
-    if matches:
+    if games:
         print("🔍 找到以下匹配的游戏:")
-        for idx, (appid, name) in enumerate(matches[:10], 1):  # Limit to first 10 matches
-            print(f"{idx}. {name} (AppID: {appid})")
+        for idx, game in enumerate(games[:10], 1):  # 限制前10个匹配结果
+            print(f"{idx}. {game['schinese_name']} (AppID: {game['appid']})")
 
         choice = input("请选择游戏编号：")
-        if choice.isdigit() and 1 <= int(choice) <= len(matches[:10]):
-            selected_appid, selected_game = matches[int(choice) - 1]
-            log.info(f"✅ 选择的游戏: {selected_game} (AppID: {selected_appid})")  # Add confirmation message
-            return selected_appid, selected_game
+        if choice.isdigit() and 1 <= int(choice) <= len(games[:10]):
+            selected_game = games[int(choice) - 1]
+            log.info(f"✅ 选择的游戏: {selected_game['schinese_name']} (AppID: {selected_game['appid']})")
+            return selected_game['appid'], selected_game['schinese_name']
     log.error("⚠ 未找到匹配的游戏")
     return None, None
 
-# Async function to download a file from a list of URLs
+
+# 异步函数从多个URL下载文件
 async def get(sha, path, repo):
     url_list = [
         f'https://gcore.jsdelivr.net/gh/{repo}@{sha}/{path}',
@@ -90,10 +75,10 @@ async def get(sha, path, repo):
             retry -= 1
             log.warning(f'🔄 重试剩余次数: {retry} - {path}')
     log.error(f'🔄 超过最大重试次数: {path}')
-    return None  # Return None if download fails
+    return None  # 如果下载失败，返回None
 
 
-# Async function to get manifest data and collect depot information
+# 异步函数获取manifest数据并收集depot信息
 async def get_manifest(sha, path, save_dir, repo):
     collected_depots = []
     try:
@@ -107,11 +92,11 @@ async def get_manifest(sha, path, save_dir, repo):
             content = await get(sha, path, repo)
             if content:
                 log.info(f'🔄 清单下载成功: {path}')
-                # Save the manifest file to the directory
+                # 保存manifest文件
                 async with aiofiles.open(save_path, 'wb') as f:
                     await f.write(content)
 
-        # Attempt to download Key.vdf or config.vdf
+        # 尝试下载Key.vdf或config.vdf
         elif path in ['Key.vdf', 'config.vdf']:
             content = await get(sha, path, repo)
             if content:
@@ -127,18 +112,18 @@ async def get_manifest(sha, path, save_dir, repo):
     return collected_depots
 
 
-# Async main function to orchestrate downloading and processing
+# 异步主函数组织下载和处理
 async def download_and_process(app_id, game_name):
     app_id_list = list(filter(str.isdecimal, app_id.strip().split('-')))
     app_id = app_id_list[0]
 
-    # Create a directory for storing the manifest and Lua files
+    # 创建保存manifest和Lua文件的目录
     save_dir = f'[{app_id}]{game_name}'
     os.makedirs(save_dir, exist_ok=True)
 
-    # Iterate over each repository
+    # 遍历每个仓库
     for repo in repos:
-        log.info(f"🔍 Searching in repository: {repo}")
+        log.info(f"🔍 搜索仓库: {repo}")
 
         url = f'https://api.github.com/repos/{repo}/branches/{app_id}'
         async with aiohttp.ClientSession() as session:
@@ -153,15 +138,15 @@ async def download_and_process(app_id, game_name):
                         if 'tree' in r2_json:
                             collected_depots = []
 
-                            # Attempt to find Key.vdf first, then config.vdf
+                            # 尝试先找到Key.vdf，再找config.vdf
                             vdf_paths = ['Key.vdf', 'config.vdf']
                             for vdf_path in vdf_paths:
                                 vdf_result = await get_manifest(sha, vdf_path, save_dir, repo)
                                 if vdf_result:
                                     collected_depots.extend(vdf_result)
-                                    break  # Stop once a valid VDF is found
+                                    break  # 找到有效的VDF后停止
 
-                            # Process each manifest in the tree
+                            # 处理树中的每个manifest
                             for item in r2_json['tree']:
                                 if item['path'].endswith('.manifest'):
                                     result = await get_manifest(sha, item['path'], save_dir, repo)
@@ -178,17 +163,17 @@ async def download_and_process(app_id, game_name):
     return [], save_dir
 
 
-# Function to parse VDF files and generate Lua script
+# 解析VDF文件生成Lua脚本
 def parse_vdf_to_lua(depot_info, appid, save_dir):
     lua_lines = []
 
-    # Add the appid to the Lua script
+    # 将appid添加到Lua脚本中
     lua_lines.append(f'addappid({appid})')
 
     for depot_id, decryption_key in depot_info:
         lua_lines.append(f'addappid({depot_id},1,"{decryption_key}")')
 
-        # Find all manifest files for the depot
+        # 查找depot的所有manifest文件
         manifest_files = [f for f in os.listdir(save_dir) if f.startswith(depot_id + "_") and f.endswith(".manifest")]
         for manifest_file in manifest_files:
             manifest_id = manifest_file[len(depot_id) + 1:-len(".manifest")]
@@ -197,34 +182,24 @@ def parse_vdf_to_lua(depot_info, appid, save_dir):
     return "\n".join(lua_lines)
 
 
-# Main function to run the entire process
+# 主函数运行整个流程
 def main():
-    user_input = input("请输入appid或游戏英文名：").strip()
+    user_input = input("请输入appid或游戏名：").strip()
 
-    # Check if the input is numeric (appid) or string (game name)
-    if user_input.isdigit():
-        appid = user_input
-        game_name = None
-    else:
-        # Use precise matching to find the appid by game name
-        appid, game_name = asyncio.run(find_appid_by_name(user_input))
-        if not appid:
-            print("未找到匹配的游戏。请尝试其他名称。")
-            return
+    # 使用搜索API直接获取appid和游戏名
+    appid, game_name = asyncio.run(find_appid_by_name(user_input))
+    if not appid:
+        print("未找到匹配的游戏。请尝试其他名称。")
+        return
 
-    # If the game name is not provided directly, fetch it
-    if not game_name:
-        game_list = asyncio.run(load_game_list())
-        game_name = next((game['name'] for game in game_list if str(game['appid']) == appid), None)
-
-    # Start the async download and process function
+    # 开始异步下载和处理函数
     collected_depots, save_dir = asyncio.run(download_and_process(appid, game_name))
 
-    # Proceed to generate the Lua script only if depots are collected
+    # 如果成功收集到depot信息，则生成Lua脚本
     if collected_depots:
         lua_script = parse_vdf_to_lua(collected_depots, appid, save_dir)
 
-        # Write the Lua script to a file in the save directory
+        # 将Lua脚本写入保存目录中的文件
         lua_file_path = os.path.join(save_dir, f'{appid}.lua')
         with open(lua_file_path, 'w', encoding='utf-8') as lua_file:
             lua_file.write(lua_script)

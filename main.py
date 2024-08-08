@@ -54,18 +54,17 @@ async def find_appid_by_name(game_name):
     matches = [(appid, name) for appid, name in game_names.items() if game_name.lower() in name.lower()]
 
     if matches:
-        # log.info("🔍 找到以下匹配的游戏:")
-        for idx, (appid, name) in enumerate(matches, 1):
+        print("🔍 找到以下匹配的游戏:")
+        for idx, (appid, name) in enumerate(matches[:10], 1):  # Limit to first 10 matches
             print(f"{idx}. {name} (AppID: {appid})")
 
         choice = input("请选择游戏编号：")
-        if choice.isdigit() and 1 <= int(choice) <= len(matches):
+        if choice.isdigit() and 1 <= int(choice) <= len(matches[:10]):
             selected_appid, selected_game = matches[int(choice) - 1]
             log.info(f"✅ 选择的游戏: {selected_game} (AppID: {selected_appid})")  # Add confirmation message
             return selected_appid, selected_game
     log.error("⚠ 未找到匹配的游戏")
     return None, None
-
 
 # Async function to download a file from a list of URLs
 async def get(sha, path, repo):
@@ -236,3 +235,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    input("按任意键退出...")

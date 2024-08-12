@@ -39,11 +39,11 @@ async def find_appid_by_name(game_name):
 
     if games:
         print("🔍 找到以下匹配的游戏:")
-        for idx, game in enumerate(games[:10], 1):  # 限制前10个匹配结果
+        for idx, game in enumerate(games, 1):
             print(f"{idx}. {game['schinese_name']} (AppID: {game['appid']})")
 
         choice = input("请选择游戏编号：")
-        if choice.isdigit() and 1 <= int(choice) <= len(games[:10]):
+        if choice.isdigit() and 1 <= int(choice) <= len(games):
             selected_game = games[int(choice) - 1]
             log.info(f"✅ 选择的游戏: {selected_game['schinese_name']} (AppID: {selected_game['appid']})")
             return selected_game['appid'], selected_game['schinese_name']

@@ -1,6 +1,7 @@
 # Manifest2Lua
 
-![image](https://github.com/user-attachments/assets/6424d758-a295-4016-8070-34c44b10d415)
+![image](https://github.com/user-attachments/assets/d4e84f75-4343-4116-8e13-7297e05c966c)
+
 
 参考了onekey项目
 https://github.com/ikunshare/Onekey

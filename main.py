@@ -39,15 +39,19 @@ async def find_appid_by_name(game_name):
     if games:
         print("🔍 找到以下匹配的游戏:")
         for idx, game in enumerate(games, 1):
-            print(f"{idx}. {game['schinese_name']} (AppID: {game['appid']})")
+            # 使用schinese_name，如果为空则使用name
+            game_name_display = game['schinese_name'] if game['schinese_name'] else game['name']
+            print(f"{idx}. {game_name_display} (AppID: {game['appid']})")
 
         choice = input("请选择游戏编号：")
         if choice.isdigit() and 1 <= int(choice) <= len(games):
             selected_game = games[int(choice) - 1]
-            log.info(f"✅ 选择的游戏: {selected_game['schinese_name']} (AppID: {selected_game['appid']})")
-            return selected_game['appid'], selected_game['schinese_name']
+            game_name_display = selected_game['schinese_name'] if selected_game['schinese_name'] else selected_game['name']
+            log.info(f"✅ 选择的游戏: {game_name_display} (AppID: {selected_game['appid']})")
+            return selected_game['appid'], game_name_display
     log.error("⚠ 未找到匹配的游戏")
     return None, None
+
 
 
 # 异步函数从多个URL下载文件
